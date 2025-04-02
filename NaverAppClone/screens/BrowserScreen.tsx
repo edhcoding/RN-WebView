@@ -13,6 +13,7 @@ import WebView from 'react-native-webview';
 import {RootStackParamList} from '../routes';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {WebViewContext} from '../components/WebViewProvider';
+import {useBackHandler} from '@react-native-community/hooks';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'browser'>;
 
@@ -84,6 +85,16 @@ const NavButton = ({
   );
 };
 
+const DISABLE_PINCH_ZOOM = `(function() {
+  const meta = document.createElement('meta');
+  meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+  meta.setAttribute('name', 'viewport');
+  document.getElementsByTagName('head')[0].appendChild(meta);
+
+  document.body.style['user-select'] = 'none';
+  document.body.style['-webkit-user-select'] = 'none';
+})();`;
+
 export default function BrowserScreen({route, navigation}: Props) {
   const {initialUrl} = route.params;
   const [url, setUrl] = useState(initialUrl);
@@ -101,6 +112,15 @@ export default function BrowserScreen({route, navigation}: Props) {
   const [canGoForward, setCanGoForward] = useState(false);
 
   const context = useContext(WebViewContext);
+
+  useBackHandler(() => {
+    if (canGoBack) {
+      // 첫 페이지 일 수 있으니까 뒤로가기 버튼 눌러도 뒤로가지 않도록 해줌
+      webViewRef.current?.goBack();
+      return true;
+    }
+    return false; // default
+  });
 
   return (
     <SafeAreaView style={styles.safearea}>
@@ -141,6 +161,11 @@ export default function BrowserScreen({route, navigation}: Props) {
         }
         // 로딩이 끝나면 로딩바 안보이게 하고싶음, 0으로하면 width가 0이되어 안보이게됨
         onLoadEnd={() => progressAnim.setValue(0)}
+        injectedJavaScript={DISABLE_PINCH_ZOOM}
+        // 특별히 하는 행동 없으니까 빈 함수 넣어줌
+        onMessage={() => {}}
+        // 기본이 true라서 비활성화 해줘야함
+        allowsLinkPreview={false}
       />
       <View style={styles.navigator}>
         <TouchableOpacity
