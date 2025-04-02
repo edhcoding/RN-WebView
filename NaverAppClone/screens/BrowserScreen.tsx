@@ -3,6 +3,7 @@ import React, {useMemo, useRef, useState} from 'react';
 import {
   Animated,
   SafeAreaView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -162,6 +163,12 @@ export default function BrowserScreen({route, navigation}: Props) {
           iconName="refresh"
           onPress={() => {
             webViewRef.current?.reload();
+          }}
+        />
+        <NavButton
+          iconName="share-outline"
+          onPress={() => {
+            Share.share({message: url});
           }}
         />
       </View>
