@@ -28,7 +28,7 @@ export default function HomeScreen({navigation}: Props) {
 
           // 'https://m.naver.com' 이 주소가 아닌 경우에는 새로운 스크린을 보여줄거임
           if (request.url != null && request.url.startsWith('https://')) {
-            navigation.navigate(RouteNames.BROWSER);
+            navigation.navigate(RouteNames.BROWSER, {initialUrl: request.url});
             return false;
           }
 
