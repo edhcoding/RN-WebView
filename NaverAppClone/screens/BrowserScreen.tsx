@@ -1,5 +1,5 @@
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import React, {useMemo, useRef, useState} from 'react';
+import React, {useContext, useMemo, useRef, useState} from 'react';
 import {
   Animated,
   SafeAreaView,
@@ -12,6 +12,7 @@ import {
 import WebView from 'react-native-webview';
 import {RootStackParamList} from '../routes';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {WebViewContext} from '../components/WebViewProvider';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'browser'>;
 
@@ -95,9 +96,11 @@ export default function BrowserScreen({route, navigation}: Props) {
 
   // 처음 browser 스크린이 렌더링되면서 animated.value 객체가 생성이되고 초기값은 0, 여기 value를 업데이트 시켜줘야함
   const progressAnim = useRef(new Animated.Value(0)).current;
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebView | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
+
+  const context = useContext(WebViewContext);
 
   return (
     <SafeAreaView style={styles.safearea}>
@@ -120,7 +123,13 @@ export default function BrowserScreen({route, navigation}: Props) {
         />
       </View>
       <WebView
-        ref={webViewRef}
+        ref={ref => {
+          webViewRef.current = ref;
+
+          if (ref != null) {
+            context?.addWebView(ref);
+          }
+        }}
         source={{uri: initialUrl}}
         onNavigationStateChange={event => {
           setUrl(event.url);

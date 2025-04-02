@@ -1,5 +1,5 @@
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
-import React, {useCallback, useRef, useState} from 'react';
+import React, {useCallback, useContext, useRef, useState} from 'react';
 import {
   RefreshControl,
   SafeAreaView,
@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import WebView from 'react-native-webview';
 import {RootStackParamList, RouteNames} from '../routes';
+import {WebViewContext} from '../components/WebViewProvider';
 
 type Props = NativeStackScreenProps<RootStackParamList>; // 정의한 스크린, 파라미터리스트
 
@@ -19,7 +20,7 @@ const styles = StyleSheet.create({
 const SHOPPING_HOME_URL = 'https://shopping.naver.com/home';
 
 export default function ShoppingScreen({navigation}: Props) {
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebView | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(() => {
@@ -27,6 +28,8 @@ export default function ShoppingScreen({navigation}: Props) {
     webViewRef.current?.reload();
     // 이렇게만 사용하면 계속 로딩바보임 webview에서 onLoad 속성 사용
   }, []);
+
+  const context = useContext(WebViewContext);
 
   return (
     <SafeAreaView style={styles.safearea}>
@@ -36,7 +39,13 @@ export default function ShoppingScreen({navigation}: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }>
         <WebView
-          ref={webViewRef}
+          ref={ref => {
+            webViewRef.current = ref;
+
+            if (ref != null) {
+              context?.addWebView(ref);
+            }
+          }}
           source={{uri: SHOPPING_HOME_URL}}
           showsVerticalScrollIndicator={false}
           showsHorizontalScrollIndicator={false}
