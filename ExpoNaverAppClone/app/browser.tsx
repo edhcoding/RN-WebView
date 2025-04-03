@@ -4,6 +4,7 @@ import {
   Animated,
   Platform,
   SafeAreaView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -161,6 +162,13 @@ export default function BrowserScreen() {
         <NavButton
           iconName="refresh"
           onPress={() => webViewRef.current?.reload()}
+        />
+        <NavButton
+          iconName="share-outline"
+          onPress={() => {
+            // message 속성에 공유할 메시지 입력
+            Share.share({ message: url });
+          }}
         />
       </View>
     </SafeAreaView>
