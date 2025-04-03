@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
+  Animated,
   Platform,
   SafeAreaView,
   StatusBar,
@@ -25,6 +26,14 @@ const styles = StyleSheet.create({
   urlText: {
     color: "white",
   },
+  loadingBarBackground: {
+    height: 3,
+    backgroundColor: "white",
+  },
+  loadingBar: {
+    height: "100%",
+    backgroundColor: "green",
+  },
 });
 
 export default function BrowserScreen() {
@@ -40,10 +49,26 @@ export default function BrowserScreen() {
     [url],
   );
 
+  // Animated.Value를 0으로 초기화해서 progressAnim에 ref로 저장
+  const progressAnim = useRef(new Animated.Value(0)).current;
+
   return (
     <SafeAreaView style={styles.safearea}>
       <View style={styles.urlContainer}>
         <Text style={styles.urlText}>{urlTitle}</Text>
+      </View>
+      <View style={styles.loadingBarBackground}>
+        <Animated.View
+          style={[
+            styles.loadingBar,
+            {
+              width: progressAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["0%", "100%"],
+              }),
+            },
+          ]}
+        />
       </View>
       <WebView
         source={{ uri: initialUrl as string }}
@@ -51,6 +76,10 @@ export default function BrowserScreen() {
         showsHorizontalScrollIndicator={false}
         // 웹 페이지가 변경될 때 마다 주소 트리거 해줘야함 (현재 접속된 주소를 트리거)
         onNavigationStateChange={(e) => setUrl(e.url)}
+        // webview 로딩 퍼센트
+        onLoadProgress={(e) => progressAnim.setValue(e.nativeEvent.progress)}
+        // 로딩 끝날때 한번 실행됨 (로딩바 없애기 위함)
+        onLoadEnd={() => progressAnim.setValue(0)}
       />
     </SafeAreaView>
   );
