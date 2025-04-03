@@ -41,11 +41,19 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ tabBarLabel: "홈", tabBarIcon: HomeIcon }}
+        options={{
+          tabBarLabel: "홈",
+          tabBarIcon: HomeIcon,
+          headerShown: false,
+        }}
       />
       <Tabs.Screen
         name="shopping"
-        options={{ tabBarLabel: "쇼핑", tabBarIcon: ShoppingIcon }}
+        options={{
+          tabBarLabel: "쇼핑",
+          tabBarIcon: ShoppingIcon,
+          headerShown: false,
+        }}
       />
     </Tabs>
   );
