@@ -1,5 +1,5 @@
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useRef, useState } from "react";
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Platform,
@@ -9,57 +9,57 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from "react-native";
-import WebView from "react-native-webview";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+} from 'react-native';
+import WebView from 'react-native-webview';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 const styles = StyleSheet.create({
   safearea: {
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
     flex: 1,
-    backgroundColor: "black",
+    backgroundColor: 'black',
   },
   urlContainer: {
-    backgroundColor: "black",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'black',
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: 5,
   },
   urlText: {
-    color: "white",
+    color: 'white',
   },
   loadingBarBackground: {
     height: 3,
-    backgroundColor: "white",
+    backgroundColor: 'white',
   },
   loadingBar: {
-    height: "100%",
-    backgroundColor: "green",
+    height: '100%',
+    backgroundColor: 'green',
   },
   navigator: {
-    backgroundColor: "black",
-    flexDirection: "row",
+    backgroundColor: 'black',
+    flexDirection: 'row',
     paddingVertical: 10,
     paddingHorizontal: 40,
-    justifyContent: "space-between",
+    justifyContent: 'space-between',
   },
   button: {
     width: 30,
     height: 30,
     padding: 4,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   naverIconOutline: {
     borderWidth: 1,
-    borderColor: "white",
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
+    borderColor: 'white',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   naverIconText: {
-    color: "white",
+    color: 'white',
   },
 });
 
@@ -76,13 +76,11 @@ const NavButton = ({
     <TouchableOpacity
       style={styles.button}
       onPress={onPress}
-      disabled={disabled}
-    >
+      disabled={disabled}>
       <MaterialCommunityIcons
         name={iconName}
         size={24}
-        color={disabled ? "gray" : "white"}
-        style={styles.naverIconText}
+        color={disabled ? 'grey' : 'white'}
       />
     </TouchableOpacity>
   );
@@ -97,7 +95,7 @@ export default function BrowserScreen() {
 
   // replace 메서드는 첫 번째 인자를 두 번째 인자로 변경
   const urlTitle = useMemo(
-    () => url.replace("https://", "").split("/")[0],
+    () => url.replace('https://', '').split('/')[0],
     [url],
   );
 
@@ -120,7 +118,7 @@ export default function BrowserScreen() {
             {
               width: progressAnim.interpolate({
                 inputRange: [0, 1],
-                outputRange: ["0%", "100%"],
+                outputRange: ['0%', '100%'],
               }),
             },
           ]}
@@ -132,14 +130,14 @@ export default function BrowserScreen() {
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
         // 웹 페이지가 변경될 때 마다 주소 트리거 해줘야함 (현재 접속된 주소를 트리거)
-        onNavigationStateChange={(e) => {
+        onNavigationStateChange={e => {
           setUrl(e.url);
           // 뒤로 갈 수 있는지 여부 파악 가능 (canGoBack 속성)
           setCanGoBack(e.canGoBack);
           setCanGoForward(e.canGoForward);
         }}
         // webview 로딩 퍼센트
-        onLoadProgress={(e) => progressAnim.setValue(e.nativeEvent.progress)}
+        onLoadProgress={e => progressAnim.setValue(e.nativeEvent.progress)}
         // 로딩 끝날때 한번 실행됨 (로딩바 없애기 위함)
         onLoadEnd={() => progressAnim.setValue(0)}
       />

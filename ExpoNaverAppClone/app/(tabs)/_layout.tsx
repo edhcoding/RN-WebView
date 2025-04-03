@@ -1,11 +1,11 @@
-import React from "react";
-import { Tabs } from "expo-router/tabs";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import React from 'react';
+import { Tabs } from 'expo-router/tabs';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 const HomeIcon = ({ focused, color }: { focused: boolean; color: string }) => {
   return (
     <MaterialCommunityIcons
-      name={focused ? "home" : "home-outline"}
+      name={focused ? 'home' : 'home-outline'}
       color={color}
       size={26}
     />
@@ -21,7 +21,7 @@ const ShoppingIcon = ({
 }) => {
   return (
     <MaterialCommunityIcons
-      name={focused ? "cart" : "cart-outline"}
+      name={focused ? 'cart' : 'cart-outline'}
       color={color}
       size={26}
     />
@@ -33,16 +33,15 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: "black",
+          backgroundColor: 'black',
         },
-        tabBarActiveTintColor: "white",
-        tabBarInactiveTintColor: "gray",
-      }}
-    >
+        tabBarActiveTintColor: 'white',
+        tabBarInactiveTintColor: 'gray',
+      }}>
       <Tabs.Screen
         name="index"
         options={{
-          tabBarLabel: "홈",
+          tabBarLabel: '홈',
           tabBarIcon: HomeIcon,
           headerShown: false,
         }}
@@ -50,7 +49,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="shopping"
         options={{
-          tabBarLabel: "쇼핑",
+          tabBarLabel: '쇼핑',
           tabBarIcon: ShoppingIcon,
           headerShown: false,
         }}
