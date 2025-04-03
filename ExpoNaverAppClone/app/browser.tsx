@@ -1,6 +1,57 @@
-import React from "react";
-import { Text } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import React, { useMemo, useState } from "react";
+import {
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import WebView from "react-native-webview";
+
+const styles = StyleSheet.create({
+  safearea: {
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+    flex: 1,
+    backgroundColor: "black",
+  },
+  urlContainer: {
+    backgroundColor: "black",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 5,
+  },
+  urlText: {
+    color: "white",
+  },
+});
 
 export default function BrowserScreen() {
-  return <Text>Browser</Text>;
+  // index.tsx에서 넘겨준 파라미터 사용하려면 useLocalSearchParams를 사용해야 함
+  const { initialUrl } = useLocalSearchParams();
+
+  // 주소 저장 state
+  const [url, setUrl] = useState<string>(initialUrl as string);
+
+  // replace 메서드는 첫 번째 인자를 두 번째 인자로 변경
+  const urlTitle = useMemo(
+    () => url.replace("https://", "").split("/")[0],
+    [url],
+  );
+
+  return (
+    <SafeAreaView style={styles.safearea}>
+      <View style={styles.urlContainer}>
+        <Text style={styles.urlText}>{urlTitle}</Text>
+      </View>
+      <WebView
+        source={{ uri: initialUrl as string }}
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+        // 웹 페이지가 변경될 때 마다 주소 트리거 해줘야함 (현재 접속된 주소를 트리거)
+        onNavigationStateChange={(e) => setUrl(e.url)}
+      />
+    </SafeAreaView>
+  );
 }

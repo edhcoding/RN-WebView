@@ -20,6 +20,7 @@ export default function HomeScreen() {
         showsHorizontalScrollIndicator={false}
         // https://www.naver.com이 아닐때 어떠한 스크린으로 네비게이션 해주기
         // onShouldStartLoadWithRequest는 true를 리턴하면 계속 웹 로딩하는거고 false를 리턴하면 로딩을 멈춤
+        // 결국에 새로운 스택으로 네비게이션 해주기
         onShouldStartLoadWithRequest={(request) => {
           if (
             request.url.startsWith("https://www.naver.com") ||
@@ -31,6 +32,10 @@ export default function HomeScreen() {
           if (request.url != null && request.url.startsWith("https://")) {
             router.navigate({
               pathname: "browser",
+              // 네비게이션 할 때 파라미터로 해당 주소를 넘겨줄 수 있음 (browser에서 이제 해당 주소를 받아서 웹뷰를 보여줄 수 있음)
+              params: {
+                initialUrl: request.url,
+              },
             });
             return false;
           }
