@@ -88,6 +88,17 @@ const NavButton = ({
   );
 };
 
+// 위 4줄 핀치 비활성화, 아래 2줄 사용자 선택 비활성화
+const DISABLE_PINCH_ZOOM = `(function() {
+  const meta = document.createElement('meta');
+  meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');
+  meta.setAttribute('name', 'viewport');
+  document.getElementsByTagName('head')[0].appendChild(meta);
+
+  document.body.style['user-select'] = 'none';
+  document.body.style['-webkit-user-select'] = 'none';
+})();`;
+
 export default function BrowserScreen() {
   // index.tsx에서 넘겨준 파라미터 사용하려면 useLocalSearchParams를 사용해야 함
   const { initialUrl } = useLocalSearchParams();
@@ -149,6 +160,11 @@ export default function BrowserScreen() {
         onLoadProgress={e => progressAnim.setValue(e.nativeEvent.progress)}
         // 로딩 끝날때 한번 실행됨 (로딩바 없애기 위함)
         onLoadEnd={() => progressAnim.setValue(0)}
+        // injectedJavaScript 속성을 사용하면 onMessage 필수
+        injectedJavaScript={DISABLE_PINCH_ZOOM}
+        // onMessage를 사용하면 JS 실행된거를 postreactnative로 보낸거를 받을 수 있음, 하지만 받아야 할 데이터가 없어서 핸들링할 필요없음
+        onMessage={() => {}}
+        allowsLinkPreview={false}
       />
       <View style={styles.navigator}>
         <TouchableOpacity style={styles.button} onPress={() => router.back()}>
