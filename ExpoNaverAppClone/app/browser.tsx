@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import WebView from 'react-native-webview';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useWebViewContext } from '../components/WebViewProvider';
 
 const styles = StyleSheet.create({
   safearea: {
@@ -107,6 +108,8 @@ export default function BrowserScreen() {
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
 
+  const { addWebView } = useWebViewContext();
+
   return (
     <SafeAreaView style={styles.safearea}>
       <View style={styles.urlContainer}>
@@ -126,7 +129,12 @@ export default function BrowserScreen() {
         />
       </View>
       <WebView
-        ref={webViewRef}
+        ref={ref => {
+          if (ref != null) {
+            webViewRef.current = ref;
+            addWebView(ref);
+          }
+        }}
         source={{ uri: initialUrl as string }}
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}

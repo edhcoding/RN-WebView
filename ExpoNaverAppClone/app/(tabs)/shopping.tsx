@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import WebView from 'react-native-webview';
+import { useWebViewContext } from '../../components/WebViewProvider';
 
 const styles = StyleSheet.create({
   safearea: {
@@ -28,6 +29,8 @@ export default function ShoppingScreen() {
     }
   }, []);
 
+  const { addWebView } = useWebViewContext();
+
   return (
     <SafeAreaView style={styles.safearea}>
       <ScrollView
@@ -36,7 +39,12 @@ export default function ShoppingScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }>
         <WebView
-          ref={webViewRef}
+          ref={ref => {
+            if (ref != null) {
+              webViewRef.current = ref;
+              addWebView(ref);
+            }
+          }}
           source={{ uri: SHOPPING_HOME_URL }}
           showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
