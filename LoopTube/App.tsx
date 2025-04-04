@@ -1,10 +1,11 @@
 import queryString from 'query-string';
-import React, {useCallback, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Alert,
   Dimensions,
   SafeAreaView,
   StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -57,7 +58,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  timeText: {
+    color: '#AEAEB2',
+    alignSelf: 'flex-end',
+    marginTop: 15,
+    marginRight: 20,
+    fontSize: 13,
+  },
 });
+
+const formatTime = (seconds: number) => {
+  // 19 -> 00:19
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  const formattedMinutes = String(minutes).padStart(2, '0');
+  const formattedSeconds = String(remainingSeconds).padStart(2, '0');
+
+  return `${formattedMinutes}:${formattedSeconds}`;
+};
 
 export default function App() {
   const webviewRef = useRef<WebView | null>(null);
@@ -65,6 +83,8 @@ export default function App() {
   const [youtubeId, setYoutubeId] = useState<string>('');
 
   const [playing, setPlaying] = useState<boolean>(false);
+  const [durationInSec, setDurationInSec] = useState<number>(0);
+  const [currentTimeInSec, setCurrentTimeInSec] = useState<number>(0);
 
   const onPressOpenLink = useCallback(() => {
     const {
@@ -111,12 +131,22 @@ export default function App() {
             });
           }
 
+          function postMessageToRN(type, data) {
+            const message = JSON.stringify({ type, data });
+            window.ReactNativeWebView.postMessage(message);
+          }
+
           function onPlayerReady(event) {
+            // 이곳에서 영상 길이에 대한 정보를 가지고 오려고 player.getDuration() 으로 postMessage를 보내려고 하는데 이미 아래에서 사용중임
+            // 이렇게 여러곳에서 사용하게 되면 onMessage로 받을때 이게 재생 정보인지, 영상 길이 정보인지 헷갈림
+            // 해결방법 - 프로토콜을 만들어서 데이터와 타입을 항상 보내는 형식으로 구현하면됨 (postMessageToRN)
+            postMessageToRN('duration', player.getDuration());
           }
 
           function onPlayerStateChange(event) {
             // 웹에서 앱으로 데이터 전달 (postMessage)
-            window.ReactNativeWebView.postMessage(JSON.stringify(event.data)); // event.data가 영상의 상태를 나타냄 (수신 - 웹뷰 onmessage)
+            // window.ReactNativeWebView.postMessage(JSON.stringify(event.data)); // event.data가 영상의 상태를 나타냄 (수신 - 웹뷰 onmessage)
+            postMessageToRN('player-state', event.data);
           }
         </script>
       </body>
@@ -138,6 +168,33 @@ export default function App() {
       webviewRef.current.injectJavaScript('player.pauseVideo(); true;'); // true넣은거는 warning 방지용
     }
   }, []);
+
+  const durationText = useMemo(() => {
+    return formatTime(Math.floor(durationInSec)); // 초 단위라서 .8 이런식으로 나올 수 있음
+  }, [durationInSec]);
+
+  const currentTimeText = useMemo(() => {
+    return formatTime(currentTimeInSec);
+  }, [currentTimeInSec]);
+
+  useEffect(() => {
+    // 에러나와서 playing일 때만 아래 코드 실행하도록 했음 (player가 초기화 되지 않았을 때 실행하면 안되기 때문)
+    if (playing) {
+      // 일정한 시간동안 영상 재생 시간을 측정하고 싶음 (interval 사용)
+      const id = setInterval(() => {
+        if (webviewRef.current != null) {
+          // 아래처럼 작성했을 때의 문제점은 player.getCurrentTime() 이걸 호출하고 실행하더라도 결과값이 나에게 오지않음 - 왜냐 단순히 그냥 호출하는거기 때문에 (웹뷰한테 보내는거기 때문에)
+          // 해결방법 - 웹뷰한테 아래 코드를 실행해서 다시 앱한테 결과값을 보내줘 라는 코드를 작성해야함
+          // webviewRef.current.injectJavaScript('player.getCurrentTime();');
+          webviewRef.current.injectJavaScript(
+            "postMessageToRN('current-time', player.getCurrentTime()); true;", // postMessageToRN 함수를 호출해서 타입은 current-time, 데이터는 player.getCurrentTime() 이걸 보내줘 라고 실행해야함
+          );
+        }
+      }, 50);
+
+      return () => clearInterval(id);
+    }
+  }, [playing]);
 
   return (
     <SafeAreaView style={styles.safearea}>
@@ -168,11 +225,21 @@ export default function App() {
             mediaPlaybackRequiresUserAction={false} // 유저 액션 없이도 재생 허용
             onMessage={e => {
               // console.log(e.nativeEvent.data); // 이렇게 콘솔 찍어보면 -1, 1, 2, 3 뭐 이런식으로 재생 상태가 들어옴 (1 재생중인 상태)
-              setPlaying(e.nativeEvent.data === '1'); // 주의할 점이 data가 문자열로 와서 1 말고 '1' 이렇게 와야함
+              // setPlaying(e.nativeEvent.data === '1'); // 주의할 점이 data가 문자열로 와서 1 말고 '1' 이렇게 와야함 (postMessageToRN 작성 전)
+              const {type, data} = JSON.parse(e.nativeEvent.data);
+              if (type === 'player-state') {
+                setPlaying(data === '1');
+              } else if (type === 'duration') {
+                setDurationInSec(data);
+              } else if (type === 'current-time') {
+                setCurrentTimeInSec(data);
+              }
             }}
           />
         )}
       </View>
+      <Text
+        style={styles.timeText}>{`${currentTimeText} / ${durationText}`}</Text>
       <View style={styles.controller}>
         {playing ? (
           <TouchableOpacity style={styles.playButton} onPress={onPressPause}>
