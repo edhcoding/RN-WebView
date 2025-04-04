@@ -1,5 +1,5 @@
 import queryString from 'query-string';
-import React, {useCallback, useMemo, useState} from 'react';
+import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {
   Alert,
   Dimensions,
@@ -40,11 +40,31 @@ const styles = StyleSheet.create({
     height: YT_HEIGHT,
     backgroundColor: '#4A4A4A',
   },
+  controller: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  playButton: {
+    height: 50,
+    width: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 export default function App() {
+  const webviewRef = useRef<WebView | null>(null);
   const [url, setUrl] = useState<string>('');
   const [youtubeId, setYoutubeId] = useState<string>('');
+
+  const [playing, setPlaying] = useState<boolean>(false);
 
   const onPressOpenLink = useCallback(() => {
     const {
@@ -62,20 +82,19 @@ export default function App() {
     const html = /* html */ `
     <!DOCTYPE html>
     <html>
-      <body>
-        <!-- 1. The <iframe> (and video player) will replace this <div> tag. -->
+      <head>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+      </head>
+      <body style="margin: 0; padding: 0;">
         <div id="player"></div>
 
         <script>
-          // 2. This code loads the IFrame Player API code asynchronously.
           var tag = document.createElement('script');
 
           tag.src = "https://www.youtube.com/iframe_api";
           var firstScriptTag = document.getElementsByTagName('script')[0];
           firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-          // 3. This function creates an <iframe> (and YouTube player)
-          //    after the API code downloads.
           var player;
           function onYouTubeIframeAPIReady() {
             player = new YT.Player('player', {
@@ -87,28 +106,17 @@ export default function App() {
               },
               events: {
                 'onReady': onPlayerReady,
-                'onStateChange': onPlayerStateChange
+                'onStateChange': onPlayerStateChange // onStateChange를 이용해서 재생 정보 알 수 잇음
               }
             });
           }
 
-          // 4. The API will call this function when the video player is ready.
           function onPlayerReady(event) {
-            event.target.playVideo();
           }
 
-          // 5. The API calls this function when the player's state changes.
-          //    The function indicates that when playing a video (state=1),
-          //    the player should play for six seconds and then stop.
-          var done = false;
           function onPlayerStateChange(event) {
-            if (event.data == YT.PlayerState.PLAYING && !done) {
-              setTimeout(stopVideo, 6000);
-              done = true;
-            }
-          }
-          function stopVideo() {
-            player.stopVideo();
+            // 웹에서 앱으로 데이터 전달 (postMessage)
+            window.ReactNativeWebView.postMessage(JSON.stringify(event.data)); // event.data가 영상의 상태를 나타냄 (수신 - 웹뷰 onmessage)
           }
         </script>
       </body>
@@ -117,6 +125,19 @@ export default function App() {
 
     return {html};
   }, [youtubeId]);
+
+  const onPressPlay = useCallback(() => {
+    // webview에 메시지를 보내야함 => webview객체에 접근해서 injectJavaScript 사용
+    if (webviewRef.current != null) {
+      webviewRef.current.injectJavaScript('player.playVideo(); true;'); // true넣은거는 warning 방지용
+    }
+  }, []);
+
+  const onPressPause = useCallback(() => {
+    if (webviewRef.current != null) {
+      webviewRef.current.injectJavaScript('player.pauseVideo(); true;'); // true넣은거는 warning 방지용
+    }
+  }, []);
 
   return (
     <SafeAreaView style={styles.safearea}>
@@ -138,7 +159,30 @@ export default function App() {
       </View>
       <View style={styles.youtubeContainer}>
         {/* 바로 webview넣지말고 youtubeId가 있을때만 넣기 */}
-        {youtubeId.length > 0 && <WebView source={{html: source.html}} />}
+        {youtubeId.length > 0 && (
+          <WebView
+            ref={webviewRef}
+            source={{html: source.html}}
+            scrollEnabled={false}
+            allowsInlineMediaPlayback // 미디어 재생 인라인 허용 (iOS 전체화면 재생이 없어짐)
+            mediaPlaybackRequiresUserAction={false} // 유저 액션 없이도 재생 허용
+            onMessage={e => {
+              // console.log(e.nativeEvent.data); // 이렇게 콘솔 찍어보면 -1, 1, 2, 3 뭐 이런식으로 재생 상태가 들어옴 (1 재생중인 상태)
+              setPlaying(e.nativeEvent.data === '1'); // 주의할 점이 data가 문자열로 와서 1 말고 '1' 이렇게 와야함
+            }}
+          />
+        )}
+      </View>
+      <View style={styles.controller}>
+        {playing ? (
+          <TouchableOpacity style={styles.playButton} onPress={onPressPause}>
+            <Icon name="pause-circle" size={41.67} color="#E5E5EA" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.playButton} onPress={onPressPlay}>
+            <Icon name="play-circle" size={39.58} color="#00DDA8" />
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
