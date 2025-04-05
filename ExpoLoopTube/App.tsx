@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -44,11 +44,26 @@ const styles = StyleSheet.create({
     height: YT_HEIGHT,
     backgroundColor: '#4A4A4A',
   },
+  controller: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  playButton: {},
 });
 // https://www.youtube.com/watch?v=UKAk_FP1SQg
 export default function App() {
+  const webViewRef = useRef<WebView | null>(null);
+
   const [url, setUrl] = useState<string>('');
   const [youtubeId, setYoutubeId] = useState<string>('');
+  const [playing, setPlaying] = useState<boolean>(false);
 
   const onPressOpenLink = useCallback(() => {
     const {
@@ -96,18 +111,10 @@ export default function App() {
           }
 
           function onPlayerReady(event) {
-            event.target.playVideo();
           }
 
-          var done = false;
           function onPlayerStateChange(event) {
-            if (event.data == YT.PlayerState.PLAYING && !done) {
-              setTimeout(stopVideo, 6000);
-              done = true;
-            }
-          }
-          function stopVideo() {
-            player.stopVideo();
+            window.ReactNativeWebView.postMessage(event.data);
           }
         </script>
       </body>
@@ -116,6 +123,18 @@ export default function App() {
 
     return { html };
   }, [youtubeId]);
+
+  const onPressPlay = useCallback(() => {
+    if (webViewRef.current != null) {
+      webViewRef.current.injectJavaScript('player.playVideo(); true;');
+    }
+  }, []);
+
+  const onPressPause = useCallback(() => {
+    if (webViewRef.current != null) {
+      webViewRef.current.injectJavaScript('player.pauseVideo(); true;');
+    }
+  }, []);
 
   return (
     <SafeAreaView style={styles.safearea}>
@@ -137,10 +156,25 @@ export default function App() {
       <View style={styles.youtubeContainer}>
         {youtubeId.length > 0 && (
           <WebView
+            ref={webViewRef}
             source={{ html: source.html }}
             allowsInlineMediaPlayback
             mediaPlaybackRequiresUserAction={false}
+            onMessage={event => {
+              setPlaying(event.nativeEvent.data === '1');
+            }}
           />
+        )}
+      </View>
+      <View style={styles.controller}>
+        {playing ? (
+          <TouchableOpacity style={styles.playButton} onPress={onPressPause}>
+            <Icon name="pause-circle" size={41.67} color="#E5E5EA" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.playButton} onPress={onPressPlay}>
+            <Icon name="play-circle" size={39.58} color="#00DDA8" />
+          </TouchableOpacity>
         )}
       </View>
     </SafeAreaView>
