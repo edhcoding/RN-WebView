@@ -7,7 +7,9 @@ import React, {
 } from 'react';
 import {
   Alert,
+  Animated,
   Dimensions,
+  PanResponder,
   Platform,
   SafeAreaView,
   StatusBar,
@@ -75,6 +77,25 @@ const styles = StyleSheet.create({
     marginTop: 15,
     marginRight: 20,
   },
+  seekBarBackground: {
+    height: 3,
+    backgroundColor: '#D4D4D4',
+    pointerEvents: 'box-none',
+  },
+  seekBarProgress: {
+    height: 3,
+    backgroundColor: '#00DDA8',
+    width: '0%',
+    pointerEvents: 'none',
+  },
+  seekBarThumb: {
+    width: 14,
+    height: 14,
+    backgroundColor: '#00DDA8',
+    borderRadius: 14 / 2,
+    position: 'absolute',
+    top: (-14 + 3) / 2,
+  },
 });
 
 const formatTime = (seconds: number) => {
@@ -90,6 +111,7 @@ const formatTime = (seconds: number) => {
 // https://www.youtube.com/watch?v=UKAk_FP1SQg
 export default function App() {
   const webViewRef = useRef<WebView | null>(null);
+  const seekBarAnimRef = useRef(new Animated.Value(0));
 
   const [url, setUrl] = useState<string>('');
   const [youtubeId, setYoutubeId] = useState<string>('');
@@ -198,6 +220,44 @@ export default function App() {
     }
   }, [playing]);
 
+  useEffect(() => {
+    // seekBarAnimRef.current.setValue(currentTimeInSec); 이렇게 작성하면 50ms마다 값이 변경되는걸 감지해서 setValue로 값을 넣어주는거라서 뚝뚝 끊기는 효과가 나옴
+    Animated.timing(seekBarAnimRef.current, {
+      toValue: currentTimeInSec,
+      duration: 50,
+      useNativeDriver: false,
+    }).start();
+  }, [currentTimeInSec]);
+
+  const durationInSecRef = useRef(durationInSec);
+  durationInSecRef.current = durationInSec;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        webViewRef.current?.injectJavaScript('player.pauseVideo(); true;');
+      },
+      onPanResponderMove: (event, gestureState) => {
+        const newTimeInSec =
+          (gestureState.moveX / YT_WIDTH) * durationInSecRef.current;
+
+        seekBarAnimRef.current.setValue(newTimeInSec);
+      },
+      onPanResponderRelease: (event, gestureState) => {
+        const newTimeInSec =
+          (gestureState.moveX / YT_WIDTH) * durationInSecRef.current;
+
+        webViewRef.current?.injectJavaScript(
+          `player.seekTo(${newTimeInSec}, true);`,
+        );
+
+        webViewRef.current?.injectJavaScript('player.playVideo(); true;');
+      },
+    }),
+  ).current; // App.tsx가 마운트 될 때 생성되도록
+
   return (
     <SafeAreaView style={styles.safearea}>
       <View style={styles.inputContainer}>
@@ -235,6 +295,30 @@ export default function App() {
             }}
           />
         )}
+      </View>
+      <View style={styles.seekBarBackground} {...panResponder.panHandlers}>
+        <Animated.View
+          style={[
+            styles.seekBarProgress,
+            {
+              width: seekBarAnimRef.current.interpolate({
+                inputRange: [0, durationInSec],
+                outputRange: ['0%', '100%'],
+              }),
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.seekBarThumb,
+            {
+              left: seekBarAnimRef.current.interpolate({
+                inputRange: [0, durationInSec],
+                outputRange: ['0%', '100%'],
+              }),
+            },
+          ]}
+        />
       </View>
       <Text
         style={styles.timeText}>{`${currentTimeText} / ${durationText}`}</Text>
