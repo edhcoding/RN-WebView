@@ -352,6 +352,7 @@ export default function App() {
                 setCurrentTimeInSec(data);
               }
             }}
+            webviewDebuggingEnabled
           />
         )}
       </View>
