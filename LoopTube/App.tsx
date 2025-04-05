@@ -2,7 +2,9 @@ import queryString from 'query-string';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Alert,
+  Animated,
   Dimensions,
+  PanResponder,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -65,6 +67,26 @@ const styles = StyleSheet.create({
     marginRight: 20,
     fontSize: 13,
   },
+  seekBarBackground: {
+    height: 3,
+    backgroundColor: '#D4D4D4',
+    pointerEvents: 'box-none', // 아래처럼 none으로 하게되면 프로그레스 바랑 thumb 둘다 터치 이벤트를 받지 않아짐 (box-none은 자기자신만 터치 이벤트를 받지 않고 children은 터치 이벤트를 받음)
+  },
+  seekBarProgress: {
+    height: 3,
+    backgroundColor: '#00DDA8',
+    width: '0%',
+    pointerEvents: 'none', // 터치 이벤트를 받지 않도록 설정 (프로그레스바 클릭하면 thumb가 이동함, 프로그레스 영역 클릭하면 thumb가 이동함)
+  },
+  seekBarThumb: {
+    width: 14,
+    height: 14,
+    borderRadius: 14 / 2,
+    backgroundColor: '#00DDA8',
+    position: 'absolute',
+    // top: (-14 + 3) / 2,
+    top: (-14 + 3) / 2,
+  },
 });
 
 const formatTime = (seconds: number) => {
@@ -79,6 +101,8 @@ const formatTime = (seconds: number) => {
 
 export default function App() {
   const webviewRef = useRef<WebView | null>(null);
+  const seekBarAnimRef = useRef(new Animated.Value(0));
+
   const [url, setUrl] = useState<string>('');
   const [youtubeId, setYoutubeId] = useState<string>('');
 
@@ -174,7 +198,7 @@ export default function App() {
   }, [durationInSec]);
 
   const currentTimeText = useMemo(() => {
-    return formatTime(currentTimeInSec);
+    return formatTime(Math.floor(currentTimeInSec));
   }, [currentTimeInSec]);
 
   useEffect(() => {
@@ -195,6 +219,59 @@ export default function App() {
       return () => clearInterval(id);
     }
   }, [playing]);
+
+  useEffect(() => {
+    // seekBarAnimRef.setValue(0); 를 하게되면 문제가 발생할 수 있음, 딱딱딱 끊어지는 효과가 발생할 수 있음, 스무스하게 하려면 Animated.timing 사용
+    // timing의 첫번째 인자로 value, 두번째 인자로 config 객체 전달
+    // 값을 조정하고 싶은 값을 넣어주고, 원하는 시간을 넣어주고, 애니메이션 효과를 주고 싶으면 useNativeDriver를 false로 설정
+    Animated.timing(seekBarAnimRef.current, {
+      toValue: currentTimeInSec, // 애니메이션 효과를 주고 싶은 값, value를 바꿔주는건데 currentTimeInSec 값으로 변경 (목표값, 애니메이션이 도달해야 할 최종값)
+      duration: 50, // 50ms 마다 애니메이션 효과 적용 (애니메이션 지속시간)
+      useNativeDriver: false, // 애니메이션을 처리를 플랫폼(Android, iOS)에게 넘길 것인지 선택, true로 설정시 애니메이션 처리가 브릿지를 통하지 않아 성능 향상이 있지만 지원되는 애니메이션에서만 사용 가능 (네이티브 드라이버 사용 여부)
+    }).start();
+  }, [currentTimeInSec]);
+
+  const durationInSecRef = useRef(durationInSec); // 이렇게만 작성하면 durationInSec이 바뀔 때마다 durationInSecRef에 안들어감, useRef에 들어가는 값은 맨 처음에 한 번만 들어가기 때문임
+  // 그렇기 때문에 durationInSec가 바뀔때마다 넣어줘야함
+  durationInSecRef.current = durationInSec;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      // panResponder를 시작할 때 panResponder에게 응답할건지 말건지 결정 (항상 터지 가능하게 할거니까 기본으로 true로 설정하겠음)
+      onStartShouldSetPanResponder: () => true,
+      // 움직일 때 잡을것인가 말것인가
+      onMoveShouldSetPanResponder: () => true,
+      // 유저가 터치를 시작했을 때의 이벤트
+      onPanResponderGrant: () => {
+        // 비디오 정지
+        webviewRef.current?.injectJavaScript('player.pauseVideo(); true;');
+      },
+      // 유저가 움직일 때
+      onPanResponderMove: (event, gestureEvent) => {
+        // seekBarThumb 위치 변경
+        // gestureEvent.moveX - 이동한 곳의 x좌표, YT_WIDTH - 영상의 너비
+        // 여기서 durationInSec을 곱해주면 되는데 durationInSec는 state를 쓰는경우에 나중에 durationInSec가 바뀌었을 때 create에 넣은 값은 바뀌지 않았기 때문에 계속 옛날 시점의 durationInSec을 사용하게됨
+        // 해결 - 여기서는 state를 사용하면 안되고 useRef를 이용해서 이 함수내에서 현재시간을 가져올 수 있도록 해야함
+        const newTimeInSec =
+          (gestureEvent.moveX / YT_WIDTH) * durationInSecRef.current; // useRef는 한 번만 실행돼서 create를 선언했을때 옛날 durationInSec 값으로 고정되는데 대신에 durationInSecRef.current로 작성하면 계속해서 current를 외부에서 가지고 오기 때문에 계속 최신의 데이터를 가지고 올 수 있음
+        // 위 식은 전체너비에서 이동한 x 값만큼의 비율을 구한다음에 비디오의 전체 시간을 곱해서 계산하면 새로운 시간을 구할 수 있음
+
+        seekBarAnimRef.current.setValue(newTimeInSec);
+      },
+      // 유저가 손을 놓았을 때
+      onPanResponderRelease: (event, gestureEvent) => {
+        // seek 이동 - 이동 시점을 알아야함 (위랑 똑같이 구현)
+        const newTimeInSec =
+          (gestureEvent.moveX / YT_WIDTH) * durationInSecRef.current;
+
+        webviewRef.current?.injectJavaScript(
+          `player.seekTo(${newTimeInSec}, true); true;`,
+        );
+        // 비디오 재생
+        webviewRef.current?.injectJavaScript('player.playVideo(); true;');
+      },
+    }),
+  ).current;
 
   return (
     <SafeAreaView style={styles.safearea}>
@@ -228,7 +305,7 @@ export default function App() {
               // setPlaying(e.nativeEvent.data === '1'); // 주의할 점이 data가 문자열로 와서 1 말고 '1' 이렇게 와야함 (postMessageToRN 작성 전)
               const {type, data} = JSON.parse(e.nativeEvent.data);
               if (type === 'player-state') {
-                setPlaying(data === '1');
+                setPlaying(data === 1); // 주의! 숫자 1로 비교
               } else if (type === 'duration') {
                 setDurationInSec(data);
               } else if (type === 'current-time') {
@@ -237,6 +314,32 @@ export default function App() {
             }}
           />
         )}
+      </View>
+      {/* panResponder사용법, View에 panResponder를 스프레드해주고 panHandlers를 전부 꺼내서 View에 적용 (panHandlers에 여러 property가 있는데 그걸 다 꺼내서 View에 적용) */}
+      <View style={styles.seekBarBackground} {...panResponder.panHandlers}>
+        {/* 애니메이션으로 점점 채워지는 효과를 만들거기 때문에 Animated.View 사용 */}
+        <Animated.View
+          style={[
+            styles.seekBarProgress,
+            {
+              width: seekBarAnimRef.current.interpolate({
+                inputRange: [0, durationInSec],
+                outputRange: ['0%', '100%'],
+              }),
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.seekBarThumb,
+            {
+              left: seekBarAnimRef.current.interpolate({
+                inputRange: [0, durationInSec],
+                outputRange: ['0%', '100%'],
+              }),
+            },
+          ]}
+        />
       </View>
       <Text
         style={styles.timeText}>{`${currentTimeText} / ${durationText}`}</Text>
