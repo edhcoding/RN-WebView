@@ -59,6 +59,7 @@ const styles = StyleSheet.create({
     width: 50,
     alignItems: 'center',
     justifyContent: 'center',
+    marginHorizontal: 54,
   },
   timeText: {
     color: '#AEAEB2',
@@ -84,7 +85,14 @@ const styles = StyleSheet.create({
     borderRadius: 14 / 2,
     backgroundColor: '#00DDA8',
     position: 'absolute',
-    // top: (-14 + 3) / 2,
+    top: (-14 + 3) / 2,
+  },
+  repeat: {
+    width: 14,
+    height: 14,
+    borderRadius: 14 / 2,
+    backgroundColor: 'red',
+    position: 'absolute',
     top: (-14 + 3) / 2,
   },
 });
@@ -109,6 +117,11 @@ export default function App() {
   const [playing, setPlaying] = useState<boolean>(false);
   const [durationInSec, setDurationInSec] = useState<number>(0);
   const [currentTimeInSec, setCurrentTimeInSec] = useState<number>(0);
+
+  // 구간반복 저장 state
+  const [repeatStartInSec, setRepeatStartInSec] = useState<number | null>(null); // 초기값으로 start나 end나 0으로 주게되면 기본으로 0부터 설정되어 버리기 때문에 null로 초기화해서 시작
+  const [repeatEndInSec, setRepeatEndInSec] = useState<number | null>(null);
+  const [repeated, setRepeated] = useState<boolean>(false);
 
   const onPressOpenLink = useCallback(() => {
     const {
@@ -273,6 +286,33 @@ export default function App() {
     }),
   ).current;
 
+  const onPressSetRepeatTime = useCallback(() => {
+    if (repeatStartInSec == null) {
+      setRepeatStartInSec(currentTimeInSec);
+    } else if (repeatEndInSec == null) {
+      setRepeatEndInSec(currentTimeInSec);
+    } else {
+      setRepeatStartInSec(null);
+      setRepeatEndInSec(null);
+    }
+  }, [currentTimeInSec, repeatEndInSec, repeatStartInSec]);
+
+  const onPressRepeat = useCallback(() => {
+    setRepeated(prev => !prev);
+  }, []);
+
+  useEffect(() => {
+    // repeated가 true일 때 현재 시간이 설정된 시간 밖으로 벗어나면 설정된 구간으로 돌아오도록해서 재생
+    if (repeated && repeatStartInSec != null && repeatEndInSec != null) {
+      // 재생되는 시간이 repeatEndInSec 보다 크면 구간 반복 시작
+      if (currentTimeInSec > repeatEndInSec) {
+        webviewRef.current?.injectJavaScript(
+          `player.seekTo(${repeatStartInSec}, true); true;`,
+        );
+      }
+    }
+  }, [currentTimeInSec, repeatEndInSec, repeatStartInSec, repeated]);
+
   return (
     <SafeAreaView style={styles.safearea}>
       <View style={styles.inputContainer}>
@@ -340,10 +380,36 @@ export default function App() {
             },
           ]}
         />
+        {/* 구간 반복 표시를 위해 seekbar 위에 작성 */}
+        {repeatStartInSec != null && (
+          // 구간 반복 시작
+          <View
+            style={[
+              styles.repeat,
+              {
+                left: (repeatStartInSec / durationInSec) * YT_WIDTH, // repeatStartInSec 에서 전체 시간으로 비율을 구하고 너비만큼 곱해서 좌표를 구함
+              },
+            ]}
+          />
+        )}
+        {repeatEndInSec != null && (
+          // 구간 반복 끝
+          <View
+            style={[
+              styles.repeat,
+              {
+                left: (repeatEndInSec / durationInSec) * YT_WIDTH,
+              },
+            ]}
+          />
+        )}
       </View>
       <Text
         style={styles.timeText}>{`${currentTimeText} / ${durationText}`}</Text>
       <View style={styles.controller}>
+        <TouchableOpacity onPress={onPressSetRepeatTime}>
+          <Icon name="data-array" size={28} color="#D9D9D9" />
+        </TouchableOpacity>
         {playing ? (
           <TouchableOpacity style={styles.playButton} onPress={onPressPause}>
             <Icon name="pause-circle" size={41.67} color="#E5E5EA" />
@@ -353,6 +419,13 @@ export default function App() {
             <Icon name="play-circle" size={39.58} color="#00DDA8" />
           </TouchableOpacity>
         )}
+        <TouchableOpacity onPress={onPressRepeat}>
+          <Icon
+            name="repeat"
+            size={28}
+            color={repeated ? '#00DDA8' : '#E5E5EA'}
+          />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
