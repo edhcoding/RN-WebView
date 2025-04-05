@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Alert,
   Dimensions,
@@ -6,6 +12,7 @@ import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -55,8 +62,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
   },
-  playButton: {},
+  playButton: {
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeText: {
+    color: '#AEAEB2',
+    alignSelf: 'flex-end',
+    fontSize: 13,
+    marginTop: 15,
+    marginRight: 20,
+  },
 });
+
+const formatTime = (seconds: number) => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  const formattedMinutes = String(minutes).padStart(2, '0');
+  const formattedSeconds = String(remainingSeconds).padStart(2, '0');
+
+  return `${formattedMinutes}:${formattedSeconds}`;
+};
+
 // https://www.youtube.com/watch?v=UKAk_FP1SQg
 export default function App() {
   const webViewRef = useRef<WebView | null>(null);
@@ -64,6 +94,8 @@ export default function App() {
   const [url, setUrl] = useState<string>('');
   const [youtubeId, setYoutubeId] = useState<string>('');
   const [playing, setPlaying] = useState<boolean>(false);
+  const [durationInSec, setDurationInSec] = useState<number>(0);
+  const [currentTimeInSec, setCurrentTimeInSec] = useState<number>(0);
 
   const onPressOpenLink = useCallback(() => {
     const {
@@ -110,11 +142,17 @@ export default function App() {
             });
           }
 
+          function postMessageToRN(type, data) {
+            const message = JSON.stringify({ type, data });
+            window.ReactNativeWebView.postMessage(message);
+          }
+
           function onPlayerReady(event) {
+            postMessageToRN('duration', player.getDuration());
           }
 
           function onPlayerStateChange(event) {
-            window.ReactNativeWebView.postMessage(event.data);
+            postMessageToRN('player-state', event.data);
           }
         </script>
       </body>
@@ -135,6 +173,30 @@ export default function App() {
       webViewRef.current.injectJavaScript('player.pauseVideo(); true;');
     }
   }, []);
+
+  const durationText = useMemo(
+    () => formatTime(Math.floor(durationInSec)),
+    [durationInSec],
+  );
+
+  const currentTimeText = useMemo(
+    () => formatTime(Math.floor(currentTimeInSec)),
+    [currentTimeInSec],
+  );
+
+  useEffect(() => {
+    if (playing) {
+      const id = setInterval(() => {
+        if (webViewRef.current != null) {
+          webViewRef.current.injectJavaScript(
+            'postMessageToRN("current-time", player.getCurrentTime()); true;',
+          );
+        }
+      }, 50);
+
+      return () => clearInterval(id);
+    }
+  }, [playing]);
 
   return (
     <SafeAreaView style={styles.safearea}>
@@ -161,11 +223,21 @@ export default function App() {
             allowsInlineMediaPlayback
             mediaPlaybackRequiresUserAction={false}
             onMessage={event => {
-              setPlaying(event.nativeEvent.data === '1');
+              const { type, data } = JSON.parse(event.nativeEvent.data);
+
+              if (type === 'player-state') {
+                setPlaying(data === 1);
+              } else if (type === 'duration') {
+                setDurationInSec(data);
+              } else if (type === 'current-time') {
+                setCurrentTimeInSec(data);
+              }
             }}
           />
         )}
       </View>
+      <Text
+        style={styles.timeText}>{`${currentTimeText} / ${durationText}`}</Text>
       <View style={styles.controller}>
         {playing ? (
           <TouchableOpacity style={styles.playButton} onPress={onPressPause}>
