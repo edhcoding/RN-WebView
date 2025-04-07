@@ -9,7 +9,10 @@ const Header = ({ title }: { title: string }) => {
   return (
     <div className="h-44 flex items-center">
       <div className="flex flex-1">
-        <button className="ml-20" onClick={onPressBackButton}>
+        <button
+          className="ml-20 flex items-center justify-center"
+          onClick={onPressBackButton}
+        >
           <span className="material-icons text-title text-24">
             arrow_back_ios
           </span>

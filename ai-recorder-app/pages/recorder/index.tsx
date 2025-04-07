@@ -9,9 +9,9 @@ export default function Recorder() {
   const [time, setTime] = useState<number>(0); // 녹음 시간
   const [audioUrl, setAudioUrl] = useState<string | null>(null); // 저장된 녹음 오디오 파일
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null); // 녹음 기능을 제어하는 MediaRecorder 인스턴스 저장
+  const chunksRef = useRef<Blob[]>([]); // 녹음된 오디오 데이터 청크들을 저장
+  const timerRef = useRef<NodeJS.Timeout | null>(null); // 녹음 시간을 측정하는 타이머 ID 저장
 
   const startTimer = useCallback(
     () =>
