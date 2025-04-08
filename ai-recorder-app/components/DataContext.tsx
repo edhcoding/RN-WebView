@@ -7,6 +7,14 @@ import {
   useState,
 } from "react";
 
+declare global {
+  interface Window {
+    ReactNativeWebView?: {
+      postMessage: (message: string) => void;
+    };
+  }
+}
+
 type Script = {
   start: number;
   end: number;
@@ -19,7 +27,7 @@ export type Data = {
   scripts: Script[]; // 시간별 스크립트 정보
   summary?: string;
   photos?: string[];
-  createdAt: number;
+  createdAt?: number;
 };
 
 type Database = { [id: string]: Data | undefined };
@@ -34,7 +42,54 @@ type ScriptContextType = {
 const ScriptContext = createContext<ScriptContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
-  const [database, setDatabase] = useState<Database>({});
+  const [database, setDatabase] = useState<Database>({
+    "202403150001": {
+      id: "202403150001",
+      text: "안녕하세요. 오늘은 인공지능과 머신러닝의 차이점에 대해 설명드리겠습니다. 인공지능은 인간의 지능을 모방하여 학습, 추론, 적응, 수정 등을 수행할 수 있는 시스템을 의미합니다. 반면에 머신러닝은 인공지능의 한 분야로, 데이터를 기반으로 패턴을 학습하고 결정을 내리는 알고리즘을 말합니다. 딥러닝은 머신러닝의 한 종류로, 인간의 뉴런과 비슷한 인공신경망을 사용하여 더 복잡한 패턴을 학습할 수 있습니다. 실생활에서는 음성 인식, 이미지 인식, 자연어 처리 등 다양한 분야에서 활용되고 있습니다. 특히 최근에는 ChatGPT와 같은 대화형 AI가 큰 주목을 받고 있죠. 이러한 기술들은 우리의 일상생활을 더욱 편리하게 만들어주고 있습니다.",
+      scripts: [
+        {
+          start: 0,
+          end: 8,
+          text: "안녕하세요. 오늘은 인공지능과 머신러닝의 차이점에 대해 설명드리겠습니다.",
+        },
+        {
+          start: 8,
+          end: 15,
+          text: "인공지능은 인간의 지능을 모방하여 학습, 추론, 적응, 수정 등을 수행할 수 있는 시스템을 의미합니다.",
+        },
+        {
+          start: 15,
+          end: 22,
+          text: "반면에 머신러닝은 인공지능의 한 분야로, 데이터를 기반으로 패턴을 학습하고 결정을 내리는 알고리즘을 말합니다.",
+        },
+        {
+          start: 22,
+          end: 30,
+          text: "딥러닝은 머신러닝의 한 종류로, 인간의 뉴런과 비슷한 인공신경망을 사용하여 더 복잡한 패턴을 학습할 수 있습니다.",
+        },
+        {
+          start: 30,
+          end: 38,
+          text: "실생활에서는 음성 인식, 이미지 인식, 자연어 처리 등 다양한 분야에서 활용되고 있습니다.",
+        },
+        {
+          start: 38,
+          end: 45,
+          text: "특히 최근에는 ChatGPT와 같은 대화형 AI가 큰 주목을 받고 있죠.",
+        },
+        {
+          start: 45,
+          end: 52,
+          text: "이러한 기술들은 우리의 일상생활을 더욱 편리하게 만들어주고 있습니다.",
+        },
+      ],
+      summary:
+        "인공지능과 머신러닝, 딥러닝의 개념과 차이점, 그리고 실생활 활용 사례에 대한 설명",
+      createdAt: 1710633600000, // 2024-03-15 00:00:00
+    },
+  }); // 녹음 데이터 저장할 전체 데이터베이스
+
+  console.log("database", database);
 
   const [loaded, setLoaded] = useState(false);
   const hasReactNativeWebview =
@@ -120,8 +175,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
 export const useDatabase = () => {
   const context = useContext(ScriptContext);
+
   if (context === undefined) {
     throw new Error("useDatabase must to be within a DataProvider");
   }
+
   return context;
 };

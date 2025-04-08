@@ -1,7 +1,13 @@
 import { useRouter } from "next/router";
 import { useCallback } from "react";
 
-const Header = ({ title }: { title: string }) => {
+const Header = ({
+  title,
+  renderRight,
+}: {
+  title: string;
+  renderRight?: () => JSX.Element;
+}) => {
   const router = useRouter();
   const onPressBackButton = useCallback(() => {
     router.back();
@@ -9,10 +15,7 @@ const Header = ({ title }: { title: string }) => {
   return (
     <div className="h-44 flex items-center">
       <div className="flex flex-1">
-        <button
-          className="ml-20 flex items-center justify-center"
-          onClick={onPressBackButton}
-        >
+        <button className="ml-20" onClick={onPressBackButton}>
           <span className="material-icons text-title text-24">
             arrow_back_ios
           </span>
@@ -21,7 +24,9 @@ const Header = ({ title }: { title: string }) => {
       <div className="flex flex-1 justify-center">
         <span className="text-15 font-semibold text-title">{title}</span>
       </div>
-      <div className="flex flex-1"></div>
+      <div className="flex flex-1 justify-end">
+        {renderRight != null && renderRight()}
+      </div>
     </div>
   );
 };

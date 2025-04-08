@@ -2,6 +2,8 @@ import Header from "@/components/Header";
 import { useCallback, useEffect, useRef, useState } from "react";
 import cn from "classnames";
 import { formatTime } from "@/modules/Util";
+import { useDatabase } from "@/components/DataContext";
+import { useRouter } from "next/router";
 
 export default function Recorder() {
   const [state, setState] = useState<"recording" | "paused" | null>(null); // 녹음 상태
@@ -44,6 +46,9 @@ export default function Recorder() {
     setState("recording");
   }, [startTimer]);
 
+  const { create } = useDatabase();
+  const router = useRouter();
+
   const transcribeAudio = useCallback(
     async ({ url, ext }: { url: string; ext: string }) => {
       const response = await fetch(url);
@@ -58,10 +63,34 @@ export default function Recorder() {
         body: formData,
       });
 
-      const data = await transcriptionRes.json();
-      console.log("data", data);
+      const data = (await transcriptionRes.json()) as {
+        transcription: {
+          text: string;
+          segments: {
+            start: number;
+            end: number;
+            text: string;
+          }[];
+        };
+      };
+
+      const id = `${Date.now()}`; // 나중에 uuid 라이브러리 사용하면 좋을 듯
+
+      create({
+        id,
+        text: data.transcription.text,
+        scripts: data.transcription.segments.map((seg) => ({
+          start: seg.start,
+          end: seg.end,
+          text: seg.text.trim(), // trim 메서드는 문자열 양쪽 공백 제거
+        })),
+      });
+
+      // 여기서 create로 데이터 베이스에 저장하고 /recording/id로 이동시키고 싶어서 [id].tsx 를 추가하려고 하는데 url에 /recording/id/photo 이런식으로 사진도
+      // 저장하려면 [id].tsx 형식의 파일 라우팅 말고 recording 폴더안에 [id] 폴더를 만들고 그 안에 index.tsx 파일 만들면됨
+      router.push(`/recording/${id}`);
     },
-    []
+    [create, router]
   );
 
   const onStopRecord = useCallback(
