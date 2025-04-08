@@ -25,7 +25,7 @@ export type Data = {
   id: string; // 스크립트 id
   text: string; // 전체 스크립트
   scripts: Script[]; // 시간별 스크립트 정보
-  summary?: string;
+  summary?: string; // 요약 스크립트
   photos?: string[];
   createdAt?: number;
 };
@@ -149,13 +149,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const update = useCallback(
     ({ id, summary }: { id: string; summary?: string }) => {
-      setDatabase((prevDatabase) => {
-        const prevData = prevDatabase[id];
-        if (prevData == null) {
-          return prevDatabase;
-        }
+      setDatabase((prev) => {
+        const prevData = prev[id];
+        if (prevData == null) return prev;
+
         return {
-          ...prevDatabase,
+          ...prev,
           [id]: {
             ...prevData,
             ...(summary != null ? { summary } : {}),
