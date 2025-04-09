@@ -82,6 +82,7 @@ export default function Recording() {
           if (!hasReactNativeWebview) {
             return <></>;
           }
+
           return (
             <button className="mr-16" onClick={onPressImageButton}>
               <span className="material-icons text-gray text-30">image</span>

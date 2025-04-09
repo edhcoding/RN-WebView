@@ -1,5 +1,12 @@
-import React, {useCallback, useRef} from 'react';
-import {Platform, SafeAreaView, StyleSheet} from 'react-native';
+import React, {useCallback, useRef, useState} from 'react';
+import {
+  Platform,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import AudioRecorderPlayer, {
   AVEncodingOption,
   OutputFormatAndroidType,
@@ -7,16 +14,48 @@ import AudioRecorderPlayer, {
 import WebView from 'react-native-webview';
 import Permission from 'react-native-permissions';
 import RNFS from 'react-native-fs';
+import {Camera, useCameraDevice} from 'react-native-vision-camera';
 
 const styles = StyleSheet.create({
   safearea: {
     flex: 1,
+  },
+  camera: {
+    backgroundColor: 'black',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  cameraCloseButton: {
+    position: 'absolute',
+    top: 69,
+    right: 20,
+  },
+  cameraCloseText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  cameraPhotoButton: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 80 / 2,
+    bottom: 60,
+    backgroundColor: 'white',
+    alignSelf: 'center',
   },
 });
 
 export default function App() {
   const webViewRef = useRef<WebView | null>(null);
   const audioRecorderPlayerRef = useRef(new AudioRecorderPlayer());
+  const cameraRef = useRef<Camera | null>(null);
+
+  const [isCameraOn, setIsCameraOn] = useState<boolean>(false); // 카메라 열었는지 여부
+
+  const device = useCameraDevice('back');
 
   // 메시지를 웹뷰로 보내는 함수
   const sendMessageToWebView = useCallback(
@@ -104,6 +143,38 @@ export default function App() {
     sendMessageToWebView({type: 'onResumeRecord'});
   }, [sendMessageToWebView]);
 
+  const openCamera = useCallback(async () => {
+    const permission = await Camera.requestCameraPermission();
+
+    if (permission === 'granted') {
+      setIsCameraOn(true);
+      // 카메라 페이지로 이동하게 할건데, 이전에 배운 네비게이션 이용해서 구현할 수도 있겠지만 따로 라이브러리 사용해야 하니까 그냥 카메라 버튼 클릭하면 웹뷰를 덮어버리는 방식으로 구현할 것임
+    }
+  }, []);
+
+  const closeCamera = useCallback(() => {
+    setIsCameraOn(false);
+  }, []);
+
+  const onPressPhotoButton = useCallback(async () => {
+    // 사진 찍으려면 camera의 reference에 접근해야함, image file 리턴해줌
+    const file = await cameraRef.current?.takePhoto({
+      flash: 'off', // 플래시 끄기
+    });
+
+    console.log('file', file);
+
+    if (file != null) {
+      const base64Image = await RNFS.readFile(file.path, 'base64');
+      const imageDataUrl = `data:image/jpeg;base64,${base64Image}`;
+
+      sendMessageToWebView({
+        type: 'onTakePhoto',
+        data: imageDataUrl,
+      });
+    }
+  }, [sendMessageToWebView]);
+
   return (
     <SafeAreaView style={styles.safearea}>
       <WebView
@@ -123,10 +194,34 @@ export default function App() {
             pauseRecord();
           } else if (type === 'resume-record') {
             resumeRecord();
+          } else if (type === 'open-camera') {
+            openCamera();
           }
         }}
         webviewDebuggingEnabled={true}
       />
+      {isCameraOn && device != null && (
+        <View style={styles.camera}>
+          {/* device는 전면 후면 카메라, 사진 or 비디오 지원, style={StyleSheet.absoluteFill} 은 화면 꽉차게 카메라 넣음 */}
+          <Camera
+            ref={cameraRef}
+            device={device}
+            photo
+            isActive
+            photoQualityBalance="speed"
+            style={StyleSheet.absoluteFill}
+          />
+          <TouchableOpacity
+            style={styles.cameraCloseButton}
+            onPress={closeCamera}>
+            <Text style={styles.cameraCloseText}>CLOSE</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.cameraPhotoButton}
+            onPress={onPressPhotoButton}
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }

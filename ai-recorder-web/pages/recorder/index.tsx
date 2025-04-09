@@ -37,6 +37,7 @@ export default function Recorder() {
   const [toastVisible, setToastVisible] = useState<boolean>(false); // 토스트 상태
   const [time, setTime] = useState<number>(0); // 녹음 시간
   const [audioUrl, setAudioUrl] = useState<string | null>(null); // 저장된 녹음 오디오 파일
+  const [photos, setPhotos] = useState<string[]>([]); // 찍은 사진들
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null); // 녹음 기능을 제어하는 MediaRecorder 인스턴스 저장
   const chunksRef = useRef<Blob[]>([]); // 녹음된 오디오 데이터 청크들을 저장
@@ -111,13 +112,14 @@ export default function Recorder() {
           end: seg.end,
           text: seg.text.trim(), // trim 메서드는 문자열 양쪽 공백 제거
         })),
+        photos,
       });
 
       // 여기서 create로 데이터 베이스에 저장하고 /recording/id로 이동시키고 싶어서 [id].tsx 를 추가하려고 하는데 url에 /recording/id/photo 이런식으로 사진도
       // 저장하려면 [id].tsx 형식의 파일 라우팅 말고 recording 폴더안에 [id] 폴더를 만들고 그 안에 index.tsx 파일 만들면됨
       router.push(`/recording/${id}`);
     },
-    [create, router]
+    [create, photos, router]
   );
 
   const onStopRecord = useCallback(
@@ -176,6 +178,9 @@ export default function Recorder() {
         } else if (type === "onResumeRecord") {
           // 앱에서 녹음이 다시 시작 됬구나
           onResumeRecord();
+        } else if (type === "onTakePhoto") {
+          // concat은 두 array를 합쳐주기 때문에 data를 배열로 넣어줘야함
+          setPhotos((prev) => prev.concat([data]));
         }
       };
 
@@ -297,9 +302,28 @@ export default function Recorder() {
     }
   }, [handleStartRecord, handlePauseRecord, state]);
 
+  const onPressCamera = useCallback(() => {
+    postMessageToRN({ type: "open-camera" });
+  }, [postMessageToRN]);
+
   return (
     <div className="h-screen bg-white flex flex-col">
-      <Header title="녹음하기" />
+      <Header
+        title="녹음하기"
+        renderRight={() => {
+          if (!hasReactNativeWebview) {
+            return <></>;
+          }
+
+          return (
+            <button type="button" onClick={onPressCamera} className="mr-16">
+              <span className="material-icons text-textGray text-30">
+                photo_camera
+              </span>
+            </button>
+          );
+        }}
+      />
       <div className="flex flex-1 flex-col items-center pt-211">
         <button
           type="button"
