@@ -7,14 +7,6 @@ import {
   useState,
 } from "react";
 
-declare global {
-  interface Window {
-    ReactNativeWebView?: {
-      postMessage: (message: string) => void;
-    };
-  }
-}
-
 type Script = {
   start: number;
   end: number;

@@ -5,6 +5,33 @@ import { formatTime } from "@/modules/Util";
 import { useDatabase } from "@/components/DataContext";
 import { useRouter } from "next/router";
 
+// base64로 인코딩된 무자열을 blob 객체로 변환하는 함수
+const base64ToBlob = (base64: string, mimeType: string) => {
+  // 바이너리 문자열로 다시 디코딩 (atob 함수는 브라우저 내장 함수로, base64 문자열 디코딩 하는 역할)
+  const byteCharacters = atob(base64);
+  const byteArrays = [];
+
+  // 바이너리 문자열을 512바이트씩 나누어 처리
+  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+    // 현재 오프셋에서 512바이트 길이의 문자열을 잘라냄
+    const slice = byteCharacters.slice(offset, offset + 512);
+    const byteNumbers = new Array(slice.length);
+
+    // slice로 잘라낸 문자열의 각 문자를 UTF-16 코드로 변환하여 배열에 저장
+    for (let i = 0; i < slice.length; i++) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+
+    // UTF-16 코드 배열(byteNumbers)을 Uint8Array로 변환 (Uint8Array는 8비트 부호 없는 정수 배열로, 바이너리 데이터를 다루기 위한 형식임)
+    const byteArray = new Uint8Array(byteNumbers);
+    // 변환된 Uint8Array를 byteArrays 배열에 추가
+    byteArrays.push(byteArray);
+  }
+
+  // Uint8Array 배열을 Blob 객체로 변환하여 반환
+  return new Blob(byteArrays, { type: mimeType });
+};
+
 export default function Recorder() {
   const [state, setState] = useState<"recording" | "paused" | null>(null); // 녹음 상태
   const [toastVisible, setToastVisible] = useState<boolean>(false); // 토스트 상태
@@ -105,7 +132,78 @@ export default function Recorder() {
     [showToast, stopTimer, transcribeAudio]
   );
 
+  const hasReactNativeWebview =
+    typeof window != "undefined" && window.ReactNativeWebView != null;
+
+  const postMessageToRN = useCallback(
+    ({ type, data }: { type: string; data?: any }) => {
+      window.ReactNativeWebView?.postMessage(JSON.stringify({ type, data }));
+    },
+    []
+  );
+
+  const onPauseRecord = useCallback(() => {
+    stopTimer();
+    setState("paused");
+  }, [stopTimer]);
+
+  const onResumeRecord = useCallback(() => {
+    startTimer();
+    setState("recording");
+  }, [startTimer]);
+
+  useEffect(() => {
+    // 핸들러는 웹뷰일 때만 등록하면 됨
+    if (hasReactNativeWebview) {
+      const handleMessage = (event: any) => {
+        const { type, data } = JSON.parse(event.data);
+
+        if (type === "onStartRecord") {
+          // 앱에서 녹음이 시작됬구나
+          onStartRecord();
+        } else if (type === "onStopRecord") {
+          // 앱에서 녹음이 멈췄구나
+          // onStopRecord({ url, ext });여기서 url은 blob을 url로 변환 했었음, 웹에서오는 오디오 데이터를 base64 string으로 받았음
+          // 이거를 blob으로 바꾸고 거기서 url을 얻어서 전달 해줘야함 (base64ToBlob 함수 참고)
+          const { audio, mimeType, ext } = data;
+          const blob = base64ToBlob(audio, mimeType);
+          const url = URL.createObjectURL(blob);
+
+          onStopRecord({ url, ext });
+        } else if (type === "onPauseRecord") {
+          // 앱에서 녹음이 일시정지 됬구나
+          onPauseRecord();
+        } else if (type === "onResumeRecord") {
+          // 앱에서 녹음이 다시 시작 됬구나
+          onResumeRecord();
+        }
+      };
+
+      // window, document 둘 다 넣어줘야 iOS, 안드로이드 둘 다 동작함
+      // message - 웹뷰에서 메시지가 도착했을 때 발생하는 이벤트
+      window.addEventListener("message", handleMessage); // 안드로이드 지원
+      document.addEventListener("message", handleMessage); // iOS 지원
+
+      return () => {
+        window.removeEventListener("message", handleMessage);
+        document.removeEventListener("message", handleMessage);
+      };
+    }
+  }, [
+    hasReactNativeWebview,
+    onPauseRecord,
+    onResumeRecord,
+    onStartRecord,
+    onStopRecord,
+  ]);
+
   const handleStartRecord = useCallback(() => {
+    if (hasReactNativeWebview) {
+      postMessageToRN({ type: "start-record" });
+      // 이렇게 햇을때 이제 앱에 start-record라는 메시지가 갈거고 앱은 이 start-record 메시지가 왔으면 녹음을 해야겠다 해서 앱에 있는 오디오 리소스를 이용해서 녹음을 시작하게됨
+      return;
+    }
+
     // 웹에서 record 할때는 mediaRecorder 이용해서 구현가능함
     window.navigator.mediaDevices
       .getUserMedia({ audio: true, video: false })
@@ -140,37 +238,51 @@ export default function Recorder() {
         };
         mediaRecorder.start();
       });
-  }, [onStartRecord, onStopRecord]);
+  }, [hasReactNativeWebview, onStartRecord, onStopRecord, postMessageToRN]);
+
+  const stop = useCallback(() => {
+    if (hasReactNativeWebview) {
+      // hasReactNativeWebview 있다면 앱으로 stop-record 메시지 보내고 종료
+      postMessageToRN({ type: "stop-record" });
+      return;
+    }
+
+    if (mediaRecorderRef.current != null) {
+      mediaRecorderRef.current.stop();
+    }
+  }, [hasReactNativeWebview, postMessageToRN]);
 
   const pause = useCallback(() => {
+    if (hasReactNativeWebview) {
+      postMessageToRN({ type: "pause-record" });
+      return;
+    }
+
     if (mediaRecorderRef.current != null) {
       mediaRecorderRef.current.pause();
     }
-  }, []);
+  }, [hasReactNativeWebview, postMessageToRN]);
 
   const resume = useCallback(() => {
+    if (hasReactNativeWebview) {
+      postMessageToRN({ type: "resume-record" });
+      return;
+    }
+
     if (mediaRecorderRef.current != null) {
       mediaRecorderRef.current.resume();
     }
-  }, []);
+  }, [hasReactNativeWebview, postMessageToRN]);
 
   const handlePauseRecord = useCallback(() => {
     if (state === "recording") {
       pause();
-      stopTimer();
-      setState("paused");
+      onPauseRecord();
     } else if (state === "paused") {
       resume();
-      startTimer();
-      setState("recording");
+      onResumeRecord();
     }
-  }, [pause, resume, startTimer, state, stopTimer]);
-
-  const stop = useCallback(() => {
-    if (mediaRecorderRef.current != null) {
-      mediaRecorderRef.current.stop();
-    }
-  }, []);
+  }, [onPauseRecord, onResumeRecord, pause, resume, state]);
 
   const handleSaveRecord = useCallback(() => {
     // record stop 로직
