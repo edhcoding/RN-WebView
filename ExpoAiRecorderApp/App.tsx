@@ -1,20 +1,18 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { Platform, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import WebView from 'react-native-webview';
+
+const styles = StyleSheet.create({
+  safearea: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+});
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaView style={styles.safearea}>
+      <WebView source={{ uri: 'https://42b6-125-139-208-49.ngrok-free.app' }} />
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
