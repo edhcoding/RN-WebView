@@ -113,6 +113,7 @@ export default function Recorder() {
           text: seg.text.trim(), // trim 메서드는 문자열 양쪽 공백 제거
         })),
         photos,
+        createdAt: Date.now(),
       });
 
       // 여기서 create로 데이터 베이스에 저장하고 /recording/id로 이동시키고 싶어서 [id].tsx 를 추가하려고 하는데 url에 /recording/id/photo 이런식으로 사진도
