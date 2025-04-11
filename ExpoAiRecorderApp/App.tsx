@@ -13,6 +13,7 @@ import {
 import WebView from 'react-native-webview';
 import * as FileSystem from 'expo-file-system'; // 파일 시스템 import 이렇게 해줘야함
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const styles = StyleSheet.create({
   safearea: {
@@ -46,6 +47,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
 });
+
+const DATABASE_KEY = 'database';
 
 export default function App() {
   const webViewRef = useRef<WebView | null>(null);
@@ -155,13 +158,28 @@ export default function App() {
     }
   }, [sendMessageToWebView]);
 
+  const loadDatabase = useCallback(async () => {
+    const stringifiedDatabase = await AsyncStorage.getItem(DATABASE_KEY);
+    const database =
+      stringifiedDatabase != null ? JSON.parse(stringifiedDatabase) : {};
+
+    sendMessageToWebView({
+      type: 'onLoadDatabase',
+      data: database,
+    });
+  }, [sendMessageToWebView]);
+
+  const saveDatabase = useCallback(async (database: any) => {
+    await AsyncStorage.setItem(DATABASE_KEY, JSON.stringify(database));
+  }, []);
+
   return (
     <SafeAreaView style={styles.safearea}>
       <WebView
         ref={webViewRef}
         source={{ uri: 'https://42b6-125-139-208-49.ngrok-free.app' }}
         onMessage={event => {
-          const { type } = JSON.parse(event.nativeEvent.data);
+          const { type, data } = JSON.parse(event.nativeEvent.data);
 
           if (type === 'start-record') {
             startRecord();
@@ -173,6 +191,10 @@ export default function App() {
             resumeRecord();
           } else if (type === 'open-camera') {
             openCamera();
+          } else if (type === 'load-database') {
+            loadDatabase();
+          } else if (type === 'save-database') {
+            saveDatabase(data);
           }
         }}
       />
